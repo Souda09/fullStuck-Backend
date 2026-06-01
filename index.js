@@ -127,28 +127,25 @@ connectDB();
 
 const app = express();
 
-// ✅ 1. CLEAN CORS CONFIGURATION
-const allowedOrigins = [
-  'http://localhost:5173', 
-  'https://full-stuck-frontend.vercel.app' // Yahan /login mat lagana
+/// ✅ 1. CLEAN CORS CONFIGURATION
+const allowedOrigins = [ 
+  'https://full-stuck-frontend.vercel.app',
+  'http://localhost:5173' 
 ];
 
 app.use(cors({
-  origin: function (origin, callback) {
-    // allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) === -1) {
-      return callback(new Error('CORS Policy: This origin is not allowed'), false);
-    }
-    return callback(null, true);
-  },
+  origin: allowedOrigins, // Seedha array dein
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// ✅ 2. MIDDLEWARES
+// ✅ 2. PRE-FLIGHT (OPTIONS) HANDLER - Ye sabse zaroori hai
+// Har route se pehle ye check karega
+app.options('*', cors()); 
+
 app.use(express.json());
+// ... baaki routes niche
 
 // ✅ 3. ROUTES
 app.use('/api/auth', authRoutes);
