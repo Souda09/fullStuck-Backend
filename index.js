@@ -116,45 +116,70 @@
 //   console.log(`\n SERVER RUNNING ON PORT: ${PORT}`);
 // });
 
+
+
 import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
 import connectDB from './src/config/db.js';
 import authRoutes from './src/routes/authRoutes.js';
+import dns from 'dns';
 
+dns.setServers(["8.8.8.8", "1.1.1.1"]);
 dotenv.config();
 connectDB();
 
 const app = express();
 
-/// ✅ 1. CLEAN CORS CONFIGURATION
-const allowedOrigins = [ 
-  'https://full-stuck-frontend.vercel.app',
-  'http://localhost:5173' 
+// 1. CLEAN CORS SETUP (No duplicate declarations)
+const allowedOrigins = [
+  'http://localhost:5173',
+  'https://full-stuck-frontend.vercel.app'
 ];
 
-app.use(cors({
-  origin: allowedOrigins, // Seedha array dein
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('CORS not allowed'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
 
-// ✅ 2. PRE-FLIGHT (OPTIONS) HANDLER - Ye sabse zaroori hai
-// Har route se pehle ye check karega
-app.options('*', cors()); 
-
+// 2. MIDDLEWARES
+app.use(cors(corsOptions));
 app.use(express.json());
-// ... baaki routes niche
 
-// ✅ 3. ROUTES
+// 3. PRE-FLIGHT FIX (Node v24 Compatible)
+// '*' crash kar raha tha, isliye hum isko manual middleware se handle karenge
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.header("Access-Control-Allow-Origin", origin);
+  }
+  res.header("Access-Control-Allow-Credentials", "true");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
+// 4. ROUTES
 app.use('/api/auth', authRoutes);
 
 app.get('/', (req, res) => {
   res.send('Souda project is running successfully!');
 });
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || process.env.Port || 5000;
+
 app.listen(PORT, () => {
-  console.log(`\n SERVER RUNNING ON PORT: ${PORT}`);
+  console.log(`\n ✅ SERVER IS LIVE ON PORT: ${PORT}`);
 });
