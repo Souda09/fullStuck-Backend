@@ -184,12 +184,9 @@
 //   console.log(`\n ✅ SERVER IS LIVE ON PORT: ${PORT}`);
 // });
 
-import dns from 'dns';
-// DNS Servers set karna (MongoDB connection speed up karne ke liye)
-dns.setServers(["8.8.8.8", "1.1.1.1"]);
-
 import dotenv from 'dotenv';
 import express from 'express';
+import cors from 'cors';
 import connectDB from './src/config/db.js';
 import authRoutes from './src/routes/authRoutes.js';
 
@@ -213,7 +210,6 @@ const allowedOrigins = [
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   
-  // Agar request dynamic allowed list mein se hai to header attach karein
   if (allowedOrigins.includes(origin)) {
     res.header("Access-Control-Allow-Origin", origin);
   }
@@ -229,7 +225,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// JSON parser (Incoming requests data read karne ke liye)
+// JSON parser
 app.use(express.json());
 
 // Main Auth Routes (/api/auth)
@@ -237,10 +233,10 @@ app.use('/api/auth', authRoutes);
 
 // Baseline verification route
 app.get('/', (req, res) => {
-  res.send('🎉 Secure Backend API is running successfully!');
+  res.send('🎉 Secure Backend API is running successfully on Vercel!');
 });
 
-// Port configuration (Process environment port or fallback 5000)
+// Port configuration
 const PORT = process.env.PORT || process.env.Port || 5000;
 
 app.listen(PORT, () => {
