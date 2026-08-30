@@ -2,11 +2,14 @@ import mongoose from 'mongoose';
 
 const connectDB = async () => {
   try {
-    // Aap ke .env ke variable 'MONGOURI' ka use kiya hai
-    const conn = await mongoose.connect(process.env.MONGOURI);
-    console.log(`📡 Cloud MongoDB Connected: ${conn.connection.host}`);
+    const conn = await mongoose.connect(process.env.MONGO_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
+    return conn;
   } catch (error) {
-    console.error(`❌ Database Connection Error: ${error.message}`);
+    console.error(`❌ MongoDB Connection Error: ${error.message}`);
     process.exit(1);
   }
 };

@@ -1,44 +1,43 @@
 import jwt from 'jsonwebtoken';
-import User from '../models/User.js'; // Note the .js extension!
+import User from '../models/User.js';
 
-// 🔑 Route Protection Middleware (Logged in checks)
 export const protect = async (req, res, next) => {
   let token;
-
-  // Header check karein ke Bearer token hai ya nahi
-  if (
-    req.headers.authorization &&
-    req.headers.authorization.startsWith('Bearer')
-  ) {
+  if (req.headers.authorization?.startsWith('Bearer')) {
     try {
-      // Header se Token alag karein (Bearer [token])
       token = req.headers.authorization.split(' ')[1];
-
-      // Token verify karein process.env.JWT_SECRET ke sath
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-      // Decoded ID se User fetch karein database se (password ke baghair)
       req.user = await User.findById(decoded.id).select('-password');
-
-      next(); // Agle control handler/controller par bhej dein
+      if (!req.user) return res.status(401).json({ success: false, message: 'User not found' });
+      next();
     } catch (error) {
-      console.error('❌ Token Verification Failed:', error.message);
-      res.status(401).json({ message: 'Not authorized, token verification failed' });
+      return res.status(401).json({ success: false, message: 'Invalid token' });
     }
   }
-
-  if (!token) {
-    res.status(401).json({ message: 'Not authorized, no token provided' });
-  }
+  if (!token) return res.status(401).json({ success: false, message: 'No token' });
 };
 
-// 🛡️ Admin Verification Middleware (Role check)
 export const admin = (req, res, next) => {
-  // Check karein ke user exists karta hai aur uska role 'admin' hai
-  if (req.user && req.user.role === 'admin') {
-    next(); // Agar admin hai to access de dein
-  } else {
-    // Agar normal user hai to block kar dein
-    res.status(403).json({ message: 'Not authorized as an admin, access denied' });
+  if (req.user?.role === 'admin') next();
+  else res.status(403).json({ success: false, message: 'Admin only' });
+};
+
+export const errorHandler = (err, req, res, next) => {
+  console.error('❌', err);
+  if (err.code === 11000) {
+    const field = Object.keys(err.keyPattern)[0];
+    return res.status(400).json({ success: false, message: `${field} already exists` });
   }
+  if (err.name === 'ValidationError') {
+    const messages = Object.values(err.errors).map(e => e.message);
+    return res.status(400).json({ success: false, message: messages.join(', ') });
+  }
+  if (err.name === 'CastError') {
+    return res.status(400).json({ success: false, message: `Invalid ${err.path}` });
+  }
+  res.status(err.statusCode || 500).json({
+    success: false,
+    message: err.message || 'Server Error',
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+  });
 };

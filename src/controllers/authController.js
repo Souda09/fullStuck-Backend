@@ -1,117 +1,62 @@
 import jwt from 'jsonwebtoken';
-import User from '../models/User.js'; // Note the .js extension!
+import User from '../models/User.js';
 
-// JWT Token Helper Function
-const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: '30d',
-  });
-};
-
-// Cookie options (Standard secure settings)
-const getCookieOptions = () => {
-  return {
-    expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 Days expiry
-    httpOnly: true, // Secure against XSS
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-  };
-};
-
-// ==========================================
-// 1. REGISTER USER
-// ==========================================
 export const registerUser = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password } = req.body;
+    console.log('📝 Register attempt:', { name, email });
 
-    const userExists = await User.findOne({ email });
-    if (userExists) {
-      return res.status(400).json({ message: 'User already exists' });
+    if (!name || !email || !password) {
+      return res.status(400).json({ success: false, message: 'All fields required' });
     }
 
-    const user = await User.create({
-      name,
-      email,
-      password,
-      role: role || 'user',
+    const existing = await User.findOne({ email });
+    if (existing) {
+      return res.status(400).json({ success: false, message: 'Email already registered' });
+    }
+
+    const user = await User.create({ name, email, password });
+    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
+
+    res.status(201).json({
+      success: true,
+      token,
+      user: { id: user._id, name, email, role: user.role }
     });
-
-    if (user) {
-      const token = generateToken(user._id);
-      
-      // Cookie set karna
-      res.cookie('token', token, getCookieOptions()).status(201).json({
-        message: 'Registration successful!',
-        token,
-        user: {
-          id: user._id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-        },
-      });
-    }
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('❌ Register ERROR:', error);  // ← yahan error print hoga
+    res.status(500).json({ success: false, message: error.message || 'Server Error' });
   }
 };
 
-// ==========================================
-// 2. LOGIN USER
-// ==========================================
 export const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
-
     if (!email || !password) {
-      return res.status(400).json({ message: 'Please enter all fields' });
+      return res.status(400).json({ success: false, message: 'Email and password required' });
     }
-
     const user = await User.findOne({ email }).select('+password');
-    if (!user) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+    if (!user || !(await user.matchPassword(password))) {
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
-
-    const isMatch = await user.matchPassword(password);
-    if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid credentials' });
-    }
-
-    const token = generateToken(user._id);
-
-    // Inspect Console print (Kaun login hua hai)
-    console.log('\n--- 🔑 USER LOGIN SUCCESSFUL ---');
-    console.log(`👤 Name: ${user.name}`);
-    console.log(`📧 Email: ${user.email}`);
-    console.log(`🛡️ Role: ${user.role.toUpperCase()}`);
-    console.log('--------------------------------\n');
-
-    // Cookie set karna
-    res.cookie('token', token, getCookieOptions()).status(200).json({
-      message: 'Login successful!',
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      },
-    });
+    await user.updateLastLogin();
+    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    res.status(200).json({ success: true, token, user: { id: user._id, name: user.name, email: user.email, role: user.role } });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('❌ Login ERROR:', error);
+    res.status(500).json({ success: false, message: 'Server Error' });
   }
 };
 
-// ==========================================
-// 3. LOGOUT SESSION
-// ==========================================
-export const logoutUser = async (req, res) => {
-  console.log(`\n🚪 User logged out session successfully.\n`);
-  
-  res.clearCookie('token', {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-  }).status(200).json({ message: 'Logged out successfully' });
+export const logoutUser = (req, res) => {
+  res.status(200).json({ success: true, message: 'Logged out' });
+};
+
+export const getMe = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    res.status(200).json({ success: true, data: user });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Server Error' });
+  }
 };
