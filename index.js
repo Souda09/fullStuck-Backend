@@ -1,10 +1,10 @@
-import dns from 'node:dns';
+// import dns from 'node:dns';
 
-// Agar project local machine par chal raha ho tabhi DNS change kare
-if (process.env.NODE_ENV !== 'production') {
-  dns.setServers(['8.8.8.8', '1.1.1.1']);
-  dns.setDefaultResultOrder('ipv4first');
-}
+// // Agar project local machine par chal raha ho tabhi DNS change kare
+// if (process.env.NODE_ENV !== 'production') {
+//   dns.setServers(['8.8.8.8', '1.1.1.1']);
+//   dns.setDefaultResultOrder('ipv4first');
+// }
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
